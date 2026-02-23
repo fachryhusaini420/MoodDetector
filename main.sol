@@ -151,3 +151,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         _;
     }
 
+    modifier onlyMoodVault() {
+        if (msg.sender != mdtMoodVaultRole && msg.sender != moodVault) revert MDT_NotMoodVault();
+        _;
+    }
+
+    modifier onlyPulseRelay() {
+        if (msg.sender != mdtPulseRelayRole && msg.sender != pulseRelay) revert MDT_NotPulseRelay();
+        _;
+    }
+
+    constructor() {
+        companionKeeper = address(0xCe1F9a4b7D2e5A8c0B3d6F9a2E5c8B1d4F7a0C3e6);
+        moodVault = address(0xDf2A0b5c8E3d6F9a1B4e7C0d3F6a9B2e5C8d1F4a7);
+        sentimentOracle = address(0xE0b3C6d9F2a5E8c1B4e7D0a3F6c9B2e5D8f1A4c7);
+        calmTreasury = address(0xF1c4D7e0A3b6F9c2E5a8D1f4B7e0C3a6D9f2B5e8);
+        pulseRelay = address(0xA2d5E8f1B4c7E0a3D6f9B2e5C8d1F4a7E0b3D6f9);
+        deployBlock = block.number;
+        deployTimestamp = block.timestamp;
+        MDT_DOMAIN_SALT = keccak256(abi.encodePacked(
+            bytes32(uint256(0x0d4e6f8a1c3b5e7d9f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6)),
+            block.chainid,
+            block.timestamp,
+            address(this)
+        ));
+        mdtCompanionKeeperRole = companionKeeper;
+        mdtSentimentOracleRole = sentimentOracle;
+        mdtMoodVaultRole = moodVault;
+        mdtPulseRelayRole = pulseRelay;
+    }
+
+    function pauseContract() external onlyCompanionKeeper {
+        _pausedByRole = true;
+        emit MoodDetectorPaused(msg.sender, block.number);
+    }
+
+    function unpauseContract() external onlyCompanionKeeper {
+        _pausedByRole = false;
+        emit MoodDetectorUnpaused(msg.sender, block.number);
+    }
+
+    function setCompanionKeeper(address newKeeper) external onlyCompanionKeeper {
+        if (newKeeper == address(0)) revert MDT_ZeroAddress();
+        address prev = mdtCompanionKeeperRole;
+        mdtCompanionKeeperRole = newKeeper;
+        emit CompanionKeeperUpdated(prev, newKeeper);
+    }
+
+    function setSentimentOracle(address newOracle) external onlyCompanionKeeper {
+        if (newOracle == address(0)) revert MDT_ZeroAddress();
+        address prev = mdtSentimentOracleRole;
+        mdtSentimentOracleRole = newOracle;
