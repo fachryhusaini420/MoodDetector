@@ -100,3 +100,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     address public mdtMoodVaultRole;
     address public mdtPulseRelayRole;
     uint256 public calmFeeWei;
+    uint256 public treasuryBalance;
+    uint256 public snapshotCounter;
+    uint256 public promptCounter;
+    bool private _pausedByRole;
+
+    struct MoodSnapshot {
+        address user;
+        uint8 sentimentBand;
+        uint256 calmScore;
+        bytes32 promptHash;
+        uint256 atBlock;
+        bool attested;
+    }
+
+    struct SentimentBandConfig {
+        uint256 minScore;
+        uint256 maxScore;
+        uint256 lockedUntilBlock;
+        bool configured;
+    }
+
+    struct CompanionPromptRecord {
+        bytes32 contentHash;
+        uint8 bandHint;
+        uint256 storedAtBlock;
+    }
+
+    mapping(uint256 => MoodSnapshot) public snapshots;
+    mapping(address => uint256[]) private _snapshotIdsByUser;
+    mapping(uint8 => SentimentBandConfig) public sentimentBands;
+    mapping(uint256 => CompanionPromptRecord) public companionPrompts;
+    mapping(address => uint256) public userCalmBalance;
+    mapping(uint8 => uint256) public snapshotCountByBand;
+    uint256[] private _allSnapshotIds;
+    uint256[] private _allPromptIds;
+
+    modifier whenNotPausedContract() {
+        if (paused() || _pausedByRole) revert MDT_Paused();
+        _;
+    }
+
+    modifier onlyCompanionKeeper() {
+        if (msg.sender != mdtCompanionKeeperRole && msg.sender != companionKeeper) revert MDT_NotCompanionKeeper();
+        _;
+    }
+
+    modifier onlySentimentOracle() {
+        if (msg.sender != mdtSentimentOracleRole && msg.sender != sentimentOracle) revert MDT_NotSentimentOracle();
+        _;
+    }
+
