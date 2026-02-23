@@ -406,3 +406,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         return 0;
     }
 
+    function getLatestSnapshotForUser(address user) external view returns (
+        uint256 snapshotId,
+        uint8 sentimentBand,
+        uint256 calmScore,
+        uint256 atBlock
+    ) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        if (ids.length == 0) return (0, 0, 0, 0);
+        snapshotId = ids[ids.length - 1];
+        MoodSnapshot storage s = snapshots[snapshotId];
+        return (snapshotId, s.sentimentBand, s.calmScore, s.atBlock);
+    }
+
+    function getAggregateCalmByBand(uint8 bandIndex) external view returns (uint256 count, uint256 sumCalmScore) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (0, 0);
+        count = snapshotCountByBand[bandIndex];
+        sumCalmScore = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[_allSnapshotIds[i]];
+            if (s.sentimentBand == bandIndex) sumCalmScore += s.calmScore;
+        }
+        return (count, sumCalmScore);
+    }
+
+    function getAllSnapshotIds() external view returns (uint256[] memory) {
+        return _allSnapshotIds;
+    }
+
+    function getAllPromptIds() external view returns (uint256[] memory) {
+        return _allPromptIds;
+    }
+
+    function totalSnapshots() external view returns (uint256) {
+        return _allSnapshotIds.length;
+    }
+
+    function totalPrompts() external view returns (uint256) {
+        return _allPromptIds.length;
+    }
+
+    function getSentimentBandConfig(uint8 bandIndex) external view returns (
+        uint256 minScore,
+        uint256 maxScore,
+        uint256 lockedUntilBlock,
+        bool configured
+    ) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (0, 0, 0, false);
+        SentimentBandConfig storage b = sentimentBands[bandIndex];
+        return (b.minScore, b.maxScore, b.lockedUntilBlock, b.configured);
+    }
+
