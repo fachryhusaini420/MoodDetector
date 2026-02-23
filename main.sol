@@ -661,3 +661,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
             uint256 prev = userCalmBalance[users[i]];
             userCalmBalance[users[i]] = prev + amounts[i];
             emit CalmPointsAwarded(users[i], amounts[i], block.number);
+            emit UserCalmBalanceUpdated(users[i], prev, prev + amounts[i]);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // SENTIMENT BAND BATCH CONFIG
+    // -------------------------------------------------------------------------
+
+    function configureSentimentBandsBatch(
+        uint8[] calldata bandIndices,
+        uint256[] calldata minScores,
+        uint256[] calldata maxScores
+    ) external onlyCompanionKeeper {
+        if (bandIndices.length != minScores.length || bandIndices.length != maxScores.length) revert MDT_ArrayLengthMismatch();
+        if (bandIndices.length > MDT_BATCH_SIZE) revert MDT_BatchTooLarge();
+        for (uint256 i = 0; i < bandIndices.length; i++) {
+            uint8 bi = bandIndices[i];
+            if (bi >= MDT_MAX_SENTIMENT_BANDS) continue;
+            if (minScores[i] > maxScores[i] || maxScores[i] > MDT_SCORE_SCALE) continue;
+            sentimentBands[bi] = SentimentBandConfig({
+                minScore: minScores[i],
+                maxScore: maxScores[i],
+                lockedUntilBlock: 0,
+                configured: true
+            });
+            emit SentimentBandConfigured(bi, minScores[i], maxScores[i], block.number);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // PAUSE OVERRIDE (align with Pausable from OZ if needed)
+    // -------------------------------------------------------------------------
+
+    function paused() public view virtual override returns (bool) {
+        return _pausedByRole || super.paused();
+    }
+
+    // -------------------------------------------------------------------------
+    // SNAPSHOT PAGINATION (for frontends / Frankie)
+    // -------------------------------------------------------------------------
+
+    function getSnapshotIdsByUserPaginated(
+        address user,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory ids, uint256 total) {
+        uint256[] storage all = _snapshotIdsByUser[user];
+        total = all.length;
+        if (offset >= total) return (new uint256[](0), total);
+        uint256 remain = total - offset;
+        if (limit > remain) limit = remain;
