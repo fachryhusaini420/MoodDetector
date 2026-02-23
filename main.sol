@@ -49,3 +49,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     error MDT_Paused();
     error MDT_NotCompanionKeeper();
     error MDT_NotSentimentOracle();
+    error MDT_NotMoodVault();
+    error MDT_NotPulseRelay();
+    error MDT_InvalidSentimentBand();
+    error MDT_ScoreOutOfRange();
+    error MDT_TransferFailed();
+    error MDT_SnapshotNotFound();
+    error MDT_InsufficientCalmFee();
+    error MDT_BandLocked();
+    error MDT_BandBoundsInvalid();
+    error MDT_MaxSnapshotsPerUser();
+    error MDT_MaxPromptsReached();
+    error MDT_PromptNotFound();
+    error MDT_ArrayLengthMismatch();
+    error MDT_BatchTooLarge();
+    error MDT_WithdrawZero();
+    error MDT_CalmBalanceInsufficient();
+    error MDT_InvalidBandIndex();
+
+    // -------------------------------------------------------------------------
+    // CONSTANTS
+    // -------------------------------------------------------------------------
+
+    uint256 public constant MDT_SCORE_SCALE = 10_000;
+    uint256 public constant MDT_MAX_SENTIMENT_BANDS = 16;
+    uint256 public constant MDT_MAX_SNAPSHOTS_PER_USER = 128;
+    uint256 public constant MDT_MAX_PROMPTS = 256;
+    uint256 public constant MDT_BATCH_SIZE = 32;
+    uint256 public constant MDT_BAND_LOCK_BLOCKS = 64;
+    bytes32 public immutable MDT_DOMAIN_SALT;
+
+    // -------------------------------------------------------------------------
+    // IMMUTABLE (constructor-set only)
+    // -------------------------------------------------------------------------
+
+    address public immutable companionKeeper;
+    address public immutable moodVault;
+    address public immutable sentimentOracle;
+    address public immutable calmTreasury;
+    address public immutable pulseRelay;
+    uint256 public immutable deployBlock;
+    uint256 public immutable deployTimestamp;
+
+    // -------------------------------------------------------------------------
+    // STATE
+    // -------------------------------------------------------------------------
+
+    address public mdtCompanionKeeperRole;
+    address public mdtSentimentOracleRole;
+    address public mdtMoodVaultRole;
+    address public mdtPulseRelayRole;
+    uint256 public calmFeeWei;
