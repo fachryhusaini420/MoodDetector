@@ -253,3 +253,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
 
     function recordMoodSnapshot(
         uint8 sentimentBand,
+        uint256 calmScore,
+        bytes32 promptHash
+    ) external payable whenNotPausedContract nonReentrant returns (uint256 snapshotId) {
+        _validateBandAndScore(sentimentBand, calmScore);
+        if (msg.value < calmFeeWei) revert MDT_InsufficientCalmFee();
+        if (_snapshotIdsByUser[msg.sender].length >= MDT_MAX_SNAPSHOTS_PER_USER) revert MDT_MaxSnapshotsPerUser();
+
+        if (msg.value > 0) {
+            treasuryBalance += msg.value;
+            emit TreasuryTopped(msg.value, msg.sender, block.number);
+        }
+
+        snapshotCounter++;
+        snapshotId = snapshotCounter;
+        snapshots[snapshotId] = MoodSnapshot({
+            user: msg.sender,
+            sentimentBand: sentimentBand,
+            calmScore: calmScore,
+            promptHash: promptHash,
+            atBlock: block.number,
+            attested: false
+        });
+        _snapshotIdsByUser[msg.sender].push(snapshotId);
+        _allSnapshotIds.push(snapshotId);
+        snapshotCountByBand[sentimentBand]++;
+
+        _updateLastSnapshotByBand(sentimentBand);
+        emit MoodSnapshotRecorded(snapshotId, msg.sender, sentimentBand, calmScore, promptHash, block.number);
+        return snapshotId;
+    }
+
+    function attestSnapshot(uint256 snapshotId) external onlySentimentOracle whenNotPausedContract {
+        MoodSnapshot storage s = snapshots[snapshotId];
+        if (s.user == address(0)) revert MDT_SnapshotNotFound();
+        if (s.attested) return;
+        s.attested = true;
+    }
+
+    function recordMoodSnapshotBatch(
+        uint8[] calldata sentimentBands,
+        uint256[] calldata calmScores,
+        bytes32[] calldata promptHashes
+    ) external payable whenNotPausedContract nonReentrant returns (uint256[] memory snapshotIds) {
+        uint256 n = sentimentBands.length;
+        if (n != calmScores.length || n != promptHashes.length) revert MDT_ArrayLengthMismatch();
+        if (n > MDT_BATCH_SIZE) revert MDT_BatchTooLarge();
+        if (msg.value < calmFeeWei * n) revert MDT_InsufficientCalmFee();
+        if (_snapshotIdsByUser[msg.sender].length + n > MDT_MAX_SNAPSHOTS_PER_USER) revert MDT_MaxSnapshotsPerUser();
+
+        if (msg.value > 0) {
+            treasuryBalance += msg.value;
