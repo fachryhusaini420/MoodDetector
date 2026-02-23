@@ -559,3 +559,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         bool isPaused
     ) {
         return (
+            mdtCompanionKeeperRole,
+            mdtMoodVaultRole,
+            mdtSentimentOracleRole,
+            calmTreasury,
+            mdtPulseRelayRole,
+            calmFeeWei,
+            treasuryBalance,
+            deployBlock,
+            paused() || _pausedByRole
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // EPOCH / WINDOW HELPERS (block-based windows for analytics)
+    // -------------------------------------------------------------------------
+
+    uint256 public constant MDT_EPOCH_BLOCKS = 6400;
+
+    function getCurrentEpochIndex() external view returns (uint256) {
+        if (block.number <= deployBlock) return 0;
+        return (block.number - deployBlock) / MDT_EPOCH_BLOCKS;
+    }
+
+    function getSnapshotIdsInEpoch(uint256 epochIndex) external view returns (uint256[] memory) {
+        uint256 startBlock = deployBlock + epochIndex * MDT_EPOCH_BLOCKS;
+        uint256 endBlock = startBlock + MDT_EPOCH_BLOCKS;
+        uint256[] memory temp = new uint256[](_allSnapshotIds.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[_allSnapshotIds[i]];
+            if (s.atBlock >= startBlock && s.atBlock < endBlock) {
+                temp[count] = _allSnapshotIds[i];
+                count++;
+            }
+        }
+        uint256[] memory out = new uint256[](count);
+        for (uint256 j = 0; j < count; j++) out[j] = temp[j];
+        return out;
+    }
+
+    function getEpochStats(uint256 epochIndex) external view returns (
+        uint256 snapshotCount,
+        uint256 totalCalmScore,
+        uint256 attestedCount
+    ) {
+        uint256 startBlock = deployBlock + epochIndex * MDT_EPOCH_BLOCKS;
+        uint256 endBlock = startBlock + MDT_EPOCH_BLOCKS;
+        snapshotCount = 0;
+        totalCalmScore = 0;
+        attestedCount = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
