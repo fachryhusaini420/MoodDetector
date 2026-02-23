@@ -457,3 +457,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         return (b.minScore, b.maxScore, b.lockedUntilBlock, b.configured);
     }
 
+    function isBandLocked(uint8 bandIndex) external view returns (bool) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return true;
+        return sentimentBands[bandIndex].lockedUntilBlock > block.number;
+    }
+
+    receive() external payable {
+        treasuryBalance += msg.value;
+        emit TreasuryTopped(msg.value, msg.sender, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // BATCH ATTEST & VIEW HELPERS
+    // -------------------------------------------------------------------------
+
+    function attestSnapshotBatch(uint256[] calldata snapshotIds) external onlySentimentOracle whenNotPausedContract {
+        for (uint256 i = 0; i < snapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[snapshotIds[i]];
+            if (s.user != address(0) && !s.attested) s.attested = true;
+        }
+    }
+
+    function getSnapshotsInRange(uint256 fromId, uint256 toId) external view returns (
+        uint256[] memory ids,
+        address[] memory users,
+        uint8[] memory bands,
+        uint256[] memory scores,
+        uint256[] memory blocks
+    ) {
+        uint256 len = toId > fromId ? toId - fromId + 1 : 0;
+        if (len > 256) len = 256;
+        ids = new uint256[](len);
+        users = new address[](len);
+        bands = new uint8[](len);
+        scores = new uint256[](len);
+        blocks = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            uint256 sid = fromId + i;
+            if (sid > snapshotCounter) break;
+            MoodSnapshot storage s = snapshots[sid];
+            ids[i] = sid;
+            users[i] = s.user;
+            bands[i] = s.sentimentBand;
+            scores[i] = s.calmScore;
+            blocks[i] = s.atBlock;
+        }
+        return (ids, users, bands, scores, blocks);
+    }
+
+    function getBandsSummary() external view returns (
+        uint8[] memory indices,
+        uint256[] memory counts,
