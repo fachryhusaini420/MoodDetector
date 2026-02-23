@@ -355,3 +355,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     }
 
     function spendCalmPoints(uint256 amount) external whenNotPausedContract nonReentrant {
+        if (amount == 0) revert MDT_ZeroAmount();
+        uint256 bal = userCalmBalance[msg.sender];
+        if (bal < amount) revert MDT_CalmBalanceInsufficient();
+        uint256 newBal = bal - amount;
+        userCalmBalance[msg.sender] = newBal;
+        emit UserCalmBalanceUpdated(msg.sender, bal, newBal);
+    }
+
+    function withdrawTreasury(address to, uint256 amountWei) external onlyCompanionKeeper nonReentrant {
+        if (to == address(0)) revert MDT_ZeroAddress();
+        if (amountWei == 0) revert MDT_WithdrawZero();
+        if (amountWei > treasuryBalance) revert MDT_CalmBalanceInsufficient();
+        treasuryBalance -= amountWei;
+        (bool ok,) = to.call{value: amountWei}("");
+        if (!ok) revert MDT_TransferFailed();
+        emit TreasuryWithdrawn(to, amountWei, block.number);
+    }
+
+    function getSnapshot(uint256 snapshotId) external view returns (
+        address user,
+        uint8 sentimentBand,
+        uint256 calmScore,
+        bytes32 promptHash,
+        uint256 atBlock,
+        bool attested
+    ) {
+        MoodSnapshot storage s = snapshots[snapshotId];
+        return (s.user, s.sentimentBand, s.calmScore, s.promptHash, s.atBlock, s.attested);
+    }
+
+    function getSnapshotIdsByUser(address user) external view returns (uint256[] memory) {
+        return _snapshotIdsByUser[user];
+    }
+
+    function getSnapshotCountByUser(address user) external view returns (uint256) {
+        return _snapshotIdsByUser[user].length;
+    }
+
+    function getCompanionPrompt(uint256 promptId) external view returns (bytes32 contentHash, uint8 bandHint, uint256 storedAtBlock) {
+        CompanionPromptRecord storage p = companionPrompts[promptId];
+        return (p.contentHash, p.bandHint, p.storedAtBlock);
+    }
+
+    function getPromptIdForBand(uint8 bandHint) external view returns (uint256 promptId) {
+        for (uint256 i = _allPromptIds.length; i > 0; i--) {
+            uint256 pid = _allPromptIds[i - 1];
+            if (companionPrompts[pid].bandHint == bandHint) return pid;
+        }
+        return 0;
+    }
+
