@@ -712,3 +712,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (offset >= total) return (new uint256[](0), total);
         uint256 remain = total - offset;
         if (limit > remain) limit = remain;
+        if (limit > 64) limit = 64;
+        ids = new uint256[](limit);
+        for (uint256 i = 0; i < limit; i++) ids[i] = all[offset + i];
+        return (ids, total);
+    }
+
+    function getGlobalSnapshotIdsPaginated(uint256 offset, uint256 limit) external view returns (uint256[] memory ids, uint256 total) {
+        total = _allSnapshotIds.length;
+        if (offset >= total) return (new uint256[](0), total);
+        uint256 remain = total - offset;
+        if (limit > remain) limit = remain;
+        if (limit > 128) limit = 128;
+        ids = new uint256[](limit);
+        for (uint256 i = 0; i < limit; i++) ids[i] = _allSnapshotIds[offset + i];
+        return (ids, total);
+    }
+
+    // -------------------------------------------------------------------------
+    // MULTI-GET SNAPSHOTS (batch view to reduce RPC calls)
+    // -------------------------------------------------------------------------
+
+    function getSnapshotsByIds(uint256[] calldata snapshotIds) external view returns (
+        address[] memory users,
+        uint8[] memory bands,
+        uint256[] memory scores,
+        bytes32[] memory hashes,
+        uint256[] memory blocks,
+        bool[] memory attestedFlags
+    ) {
+        uint256 n = snapshotIds.length;
+        if (n > 64) n = 64;
+        users = new address[](n);
+        bands = new uint8[](n);
+        scores = new uint256[](n);
+        hashes = new bytes32[](n);
+        blocks = new uint256[](n);
+        attestedFlags = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            MoodSnapshot storage s = snapshots[snapshotIds[i]];
+            users[i] = s.user;
+            bands[i] = s.sentimentBand;
+            scores[i] = s.calmScore;
+            hashes[i] = s.promptHash;
+            blocks[i] = s.atBlock;
+            attestedFlags[i] = s.attested;
+        }
+        return (users, bands, scores, hashes, blocks, attestedFlags);
+    }
+
+    // -------------------------------------------------------------------------
+    // SENTIMENT BAND BOUNDS CHECK (view)
