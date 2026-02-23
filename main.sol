@@ -508,3 +508,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     function getBandsSummary() external view returns (
         uint8[] memory indices,
         uint256[] memory counts,
+        uint256[] memory sumScores
+    ) {
+        indices = new uint8[](MDT_MAX_SENTIMENT_BANDS);
+        counts = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        sumScores = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        for (uint8 b = 0; b < MDT_MAX_SENTIMENT_BANDS; b++) {
+            indices[b] = b;
+            counts[b] = snapshotCountByBand[b];
+            uint256 sum = 0;
+            for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+                if (snapshots[_allSnapshotIds[i]].sentimentBand == b) sum += snapshots[_allSnapshotIds[i]].calmScore;
+            }
+            sumScores[b] = sum;
+        }
+        return (indices, counts, sumScores);
+    }
+
+    function getDomainFingerprint() external view returns (bytes32) {
+        return keccak256(abi.encodePacked(MDT_DOMAIN_SALT, deployBlock, totalSnapshots(), totalPrompts()));
+    }
+
+    function getUserStats(address user) external view returns (
+        uint256 snapshotCount,
+        uint256 calmBalance,
+        uint256 lastSnapshotId,
+        uint8 lastBand,
+        uint256 lastCalmScore
+    ) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        snapshotCount = ids.length;
+        calmBalance = userCalmBalance[user];
+        if (ids.length == 0) {
+            return (0, calmBalance, 0, 0, 0);
+        }
+        lastSnapshotId = ids[ids.length - 1];
+        MoodSnapshot storage s = snapshots[lastSnapshotId];
+        return (snapshotCount, calmBalance, lastSnapshotId, s.sentimentBand, s.calmScore);
+    }
+
+    function getConfig() external view returns (
+        address keeper,
+        address vault,
+        address oracle,
+        address treasury,
+        address relay,
+        uint256 feeWei,
+        uint256 treasuryBal,
+        uint256 deployBlk,
+        bool isPaused
+    ) {
+        return (
