@@ -763,3 +763,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
 
     // -------------------------------------------------------------------------
     // SENTIMENT BAND BOUNDS CHECK (view)
+    // -------------------------------------------------------------------------
+
+    function scoreFitsInBand(uint8 bandIndex, uint256 calmScore) external view returns (bool fits, bool bandConfigured) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (false, false);
+        SentimentBandConfig storage b = sentimentBands[bandIndex];
+        bandConfigured = b.configured;
+        if (!b.configured) return (calmScore <= MDT_SCORE_SCALE, false);
+        if (b.lockedUntilBlock > block.number) return (false, true);
+        fits = calmScore >= b.minScore && calmScore <= b.maxScore;
+        return (fits, true);
+    }
+
+    function getBandBounds(uint8 bandIndex) external view returns (uint256 minScore, uint256 maxScore, bool locked) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (0, 0, true);
+        SentimentBandConfig storage b = sentimentBands[bandIndex];
+        return (b.minScore, b.maxScore, b.lockedUntilBlock > block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // CALM BALANCE BATCH VIEW
+    // -------------------------------------------------------------------------
+
+    function getCalmBalances(address[] calldata users) external view returns (uint256[] memory balances) {
+        uint256 n = users.length;
+        if (n > 64) n = 64;
+        balances = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) balances[i] = userCalmBalance[users[i]];
+        return balances;
+    }
+
+    // -------------------------------------------------------------------------
+    // COMPANION PROMPTS BATCH VIEW
+    // -------------------------------------------------------------------------
+
+    function getPromptsByIds(uint256[] calldata promptIds) external view returns (
+        bytes32[] memory contentHashes,
+        uint8[] memory bandHints,
+        uint256[] memory storedBlocks
+    ) {
+        uint256 n = promptIds.length;
+        if (n > 64) n = 64;
+        contentHashes = new bytes32[](n);
+        bandHints = new uint8[](n);
+        storedBlocks = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            CompanionPromptRecord storage p = companionPrompts[promptIds[i]];
+            contentHashes[i] = p.contentHash;
+            bandHints[i] = p.bandHint;
+            storedBlocks[i] = p.storedAtBlock;
+        }
+        return (contentHashes, bandHints, storedBlocks);
