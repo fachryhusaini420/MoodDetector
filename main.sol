@@ -202,3 +202,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (newOracle == address(0)) revert MDT_ZeroAddress();
         address prev = mdtSentimentOracleRole;
         mdtSentimentOracleRole = newOracle;
+        emit SentimentOracleUpdated(prev, newOracle);
+    }
+
+    function setMoodVault(address newVault) external onlyCompanionKeeper {
+        if (newVault == address(0)) revert MDT_ZeroAddress();
+        address prev = mdtMoodVaultRole;
+        mdtMoodVaultRole = newVault;
+        emit MoodVaultUpdated(prev, newVault);
+    }
+
+    function setPulseRelay(address newRelay) external onlyCompanionKeeper {
+        if (newRelay == address(0)) revert MDT_ZeroAddress();
+        address prev = mdtPulseRelayRole;
+        mdtPulseRelayRole = newRelay;
+        emit PulseRelayUpdated(prev, newRelay);
+    }
+
+    function setCalmFeeWei(uint256 newFeeWei) external onlyCompanionKeeper {
+        uint256 prev = calmFeeWei;
+        calmFeeWei = newFeeWei;
+        emit CalmFeeSet(prev, newFeeWei);
+    }
+
+    function _validateBandAndScore(uint8 bandIndex, uint256 calmScore) internal view {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) revert MDT_InvalidSentimentBand();
+        if (calmScore > MDT_SCORE_SCALE) revert MDT_ScoreOutOfRange();
+        SentimentBandConfig storage band = sentimentBands[bandIndex];
+        if (band.lockedUntilBlock > block.number) revert MDT_BandLocked();
+        if (band.configured && (calmScore < band.minScore || calmScore > band.maxScore)) revert MDT_ScoreOutOfRange();
+    }
+
+    function configureSentimentBand(uint8 bandIndex, uint256 minScore, uint256 maxScore) external onlyCompanionKeeper {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) revert MDT_InvalidBandIndex();
+        if (minScore > maxScore || maxScore > MDT_SCORE_SCALE) revert MDT_BandBoundsInvalid();
+        sentimentBands[bandIndex] = SentimentBandConfig({
+            minScore: minScore,
+            maxScore: maxScore,
+            lockedUntilBlock: 0,
+            configured: true
+        });
+        emit SentimentBandConfigured(bandIndex, minScore, maxScore, block.number);
+    }
+
+    function lockSentimentBand(uint8 bandIndex) external onlyCompanionKeeper {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) revert MDT_InvalidBandIndex();
+        sentimentBands[bandIndex].lockedUntilBlock = block.number + MDT_BAND_LOCK_BLOCKS;
+        emit CalmBandLocked(bandIndex, block.number + MDT_BAND_LOCK_BLOCKS);
+    }
+
+    function recordMoodSnapshot(
+        uint8 sentimentBand,
