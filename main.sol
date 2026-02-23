@@ -304,3 +304,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
 
         if (msg.value > 0) {
             treasuryBalance += msg.value;
+            emit TreasuryTopped(msg.value, msg.sender, block.number);
+        }
+
+        snapshotIds = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            _validateBandAndScore(sentimentBands[i], calmScores[i]);
+            snapshotCounter++;
+            uint256 sid = snapshotCounter;
+            snapshots[sid] = MoodSnapshot({
+                user: msg.sender,
+                sentimentBand: sentimentBands[i],
+                calmScore: calmScores[i],
+                promptHash: promptHashes[i],
+                atBlock: block.number,
+                attested: false
+            });
+            _snapshotIdsByUser[msg.sender].push(sid);
+            _allSnapshotIds.push(sid);
+            snapshotCountByBand[sentimentBands[i]]++;
+            snapshotIds[i] = sid;
+            _updateLastSnapshotByBand(sentimentBands[i]);
+            emit MoodSnapshotRecorded(sid, msg.sender, sentimentBands[i], calmScores[i], promptHashes[i], block.number);
+        }
+        emit SnapshotBatchRecorded(msg.sender, snapshotIds, block.number);
+        return snapshotIds;
+    }
+
+    function storeCompanionPrompt(bytes32 contentHash, uint8 bandHint) external onlyCompanionKeeper whenNotPausedContract returns (uint256 promptId) {
+        if (promptCounter >= MDT_MAX_PROMPTS) revert MDT_MaxPromptsReached();
+        promptCounter++;
+        promptId = promptCounter;
+        companionPrompts[promptId] = CompanionPromptRecord({
+            contentHash: contentHash,
+            bandHint: bandHint,
+            storedAtBlock: block.number
+        });
+        _allPromptIds.push(promptId);
+        emit CompanionPromptStored(promptId, contentHash, bandHint, block.number);
+        return promptId;
+    }
+
+    function awardCalmPoints(address user, uint256 amount) external onlyPulseRelay whenNotPausedContract {
+        if (user == address(0)) revert MDT_ZeroAddress();
+        if (amount == 0) revert MDT_ZeroAmount();
+        uint256 prev = userCalmBalance[user];
+        userCalmBalance[user] = prev + amount;
+        emit CalmPointsAwarded(user, amount, block.number);
+        emit UserCalmBalanceUpdated(user, prev, prev + amount);
+    }
+
+    function spendCalmPoints(uint256 amount) external whenNotPausedContract nonReentrant {
