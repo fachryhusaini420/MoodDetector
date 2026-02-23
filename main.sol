@@ -610,3 +610,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         totalCalmScore = 0;
         attestedCount = 0;
         for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[_allSnapshotIds[i]];
+            if (s.atBlock >= startBlock && s.atBlock < endBlock) {
+                snapshotCount++;
+                totalCalmScore += s.calmScore;
+                if (s.attested) attestedCount++;
+            }
+        }
+        return (snapshotCount, totalCalmScore, attestedCount);
+    }
+
+    // -------------------------------------------------------------------------
+    // COMPANION PROMPT LOOKUP BY BAND
+    // -------------------------------------------------------------------------
+
+    function getPromptIdsByBandHint(uint8 bandHint) external view returns (uint256[] memory) {
+        uint256[] memory temp = new uint256[](MDT_MAX_PROMPTS);
+        uint256 count = 0;
+        for (uint256 i = 0; i < _allPromptIds.length; i++) {
+            if (companionPrompts[_allPromptIds[i]].bandHint == bandHint) {
+                temp[count] = _allPromptIds[i];
+                count++;
+            }
+        }
+        uint256[] memory out = new uint256[](count);
+        for (uint256 j = 0; j < count; j++) out[j] = temp[j];
+        return out;
+    }
+
+    // -------------------------------------------------------------------------
+    // GAS ESTIMATION CONSTANTS (for frontends)
+    // -------------------------------------------------------------------------
+
+    uint256 public constant MDT_ESTIMATE_RECORD_SNAPSHOT = 95_000;
+    uint256 public constant MDT_ESTIMATE_RECORD_BATCH_PER = 72_000;
+    uint256 public constant MDT_ESTIMATE_ATTEST = 45_000;
+    uint256 public constant MDT_ESTIMATE_STORE_PROMPT = 65_000;
+    uint256 public constant MDT_ESTIMATE_AWARD_CALM = 55_000;
+    uint256 public constant MDT_ESTIMATE_WITHDRAW_TREASURY = 38_000;
+
+    // -------------------------------------------------------------------------
+    // CALM POINTS BATCH (relay only)
+    // -------------------------------------------------------------------------
+
+    function awardCalmPointsBatch(address[] calldata users, uint256[] calldata amounts) external onlyPulseRelay whenNotPausedContract {
+        if (users.length != amounts.length) revert MDT_ArrayLengthMismatch();
+        if (users.length > MDT_BATCH_SIZE) revert MDT_BatchTooLarge();
+        for (uint256 i = 0; i < users.length; i++) {
+            if (users[i] == address(0) || amounts[i] == 0) continue;
+            uint256 prev = userCalmBalance[users[i]];
+            userCalmBalance[users[i]] = prev + amounts[i];
+            emit CalmPointsAwarded(users[i], amounts[i], block.number);
