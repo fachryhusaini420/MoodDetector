@@ -1171,3 +1171,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     // -------------------------------------------------------------------------
 
     function estimateRecordSnapshotGas() external pure returns (uint256) {
+        return MDT_ESTIMATE_RECORD_SNAPSHOT;
+    }
+
+    function estimateRecordBatchGas(uint256 count) external pure returns (uint256) {
+        if (count > MDT_BATCH_SIZE) return MDT_ESTIMATE_RECORD_BATCH_PER * MDT_BATCH_SIZE;
+        return MDT_ESTIMATE_RECORD_BATCH_PER * count;
+    }
+
+    function estimateAttestGas() external pure returns (uint256) {
+        return MDT_ESTIMATE_ATTEST;
+    }
+
+    function estimateStorePromptGas() external pure returns (uint256) {
+        return MDT_ESTIMATE_STORE_PROMPT;
+    }
+
+    function estimateAwardCalmGas() external pure returns (uint256) {
+        return MDT_ESTIMATE_AWARD_CALM;
+    }
+
+    function estimateWithdrawTreasuryGas() external pure returns (uint256) {
+        return MDT_ESTIMATE_WITHDRAW_TREASURY;
+    }
+
+    // -------------------------------------------------------------------------
+    // SENTIMENT BAND FULL CONFIG BATCH (for Frankie band editor)
+    // -------------------------------------------------------------------------
+
+    function getAllBandConfigs() external view returns (
+        uint8[] memory indices,
+        uint256[] memory minScores,
+        uint256[] memory maxScores,
+        uint256[] memory lockedUntilBlocks,
+        bool[] memory configured
+    ) {
+        indices = new uint8[](MDT_MAX_SENTIMENT_BANDS);
+        minScores = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        maxScores = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        lockedUntilBlocks = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        configured = new bool[](MDT_MAX_SENTIMENT_BANDS);
+        for (uint8 i = 0; i < MDT_MAX_SENTIMENT_BANDS; i++) {
+            indices[i] = i;
+            SentimentBandConfig storage b = sentimentBands[i];
+            minScores[i] = b.minScore;
+            maxScores[i] = b.maxScore;
+            lockedUntilBlocks[i] = b.lockedUntilBlock;
+            configured[i] = b.configured;
+        }
+        return (indices, minScores, maxScores, lockedUntilBlocks, configured);
+    }
+
