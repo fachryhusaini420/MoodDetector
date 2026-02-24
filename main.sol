@@ -865,3 +865,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     function getTreasuryBalance() external view returns (uint256) {
         return treasuryBalance;
     }
+
+    function getCalmFeeWei() external view returns (uint256) {
+        return calmFeeWei;
+    }
+
+    function estimateRecordFee(uint256 snapshotCount) external view returns (uint256 totalWei) {
+        return calmFeeWei * snapshotCount;
+    }
+
+    // -------------------------------------------------------------------------
+    // DEPLOY METADATA
+    // -------------------------------------------------------------------------
+
+    function getDeployMetadata() external view returns (uint256 blockNum, uint256 timestamp, bytes32 domainSalt) {
+        return (deployBlock, deployTimestamp, MDT_DOMAIN_SALT);
+    }
+
+    // -------------------------------------------------------------------------
+    // ROLE CHECK HELPERS (view)
+    // -------------------------------------------------------------------------
+
+    function isCompanionKeeper(address account) external view returns (bool) {
+        return account == mdtCompanionKeeperRole || account == companionKeeper;
+    }
+
+    function isSentimentOracle(address account) external view returns (bool) {
+        return account == mdtSentimentOracleRole || account == sentimentOracle;
+    }
+
+    function isMoodVault(address account) external view returns (bool) {
+        return account == mdtMoodVaultRole || account == moodVault;
+    }
+
+    function isPulseRelay(address account) external view returns (bool) {
+        return account == mdtPulseRelayRole || account == pulseRelay;
+    }
+
+    function isCalmTreasury(address account) external view returns (bool) {
+        return account == calmTreasury;
+    }
+
+    // -------------------------------------------------------------------------
+    // SENTIMENT BAND LABELS (optional; stored as bytes32 for gas)
+    // -------------------------------------------------------------------------
+
+    mapping(uint8 => bytes32) public bandLabelHash;
+
+    function setBandLabelHash(uint8 bandIndex, bytes32 labelHash) external onlyCompanionKeeper {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) revert MDT_InvalidBandIndex();
+        bandLabelHash[bandIndex] = labelHash;
+    }
