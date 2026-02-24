@@ -1324,3 +1324,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         return (attested, total);
     }
 
+    /// @notice Returns treasury balance and calm fee (convenience view).
+    function getTreasuryAndFee() external view returns (uint256 treasuryWei, uint256 feeWei) {
+        return (treasuryBalance, calmFeeWei);
+    }
+
+    /// @notice Returns deploy block and current block (for epoch math).
+    function getBlockInfo() external view returns (uint256 deployBlk, uint256 currentBlk) {
+        return (deployBlock, block.number);
+    }
+
+    /// @notice Returns the snapshot ID at a given index in the global list (for pagination).
+    function getSnapshotIdAt(uint256 index) external view returns (uint256 snapshotId) {
+        if (index >= _allSnapshotIds.length) return 0;
+        return _allSnapshotIds[index];
+    }
+
+    /// @notice Returns the prompt ID at a given index in the global list.
+    function getPromptIdAt(uint256 index) external view returns (uint256 promptId) {
+        if (index >= _allPromptIds.length) return 0;
+        return _allPromptIds[index];
+    }
+
+    /// @notice Returns total number of snapshots and prompts (convenience).
+    function getTotals() external view returns (uint256 totalSnapshots, uint256 totalPrompts) {
+        return (_allSnapshotIds.length, _allPromptIds.length);
+    }
+
+    /// @notice Validates that a (bandIndex, calmScore) pair fits current band config (view only).
+    function validateSnapshotInput(uint8 bandIndex, uint256 calmScore) external view returns (bool valid, string memory reason) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (false, "MDT_InvalidBand");
+        if (calmScore > MDT_SCORE_SCALE) return (false, "MDT_ScoreOutOfRange");
+        SentimentBandConfig storage b = sentimentBands[bandIndex];
+        if (b.lockedUntilBlock > block.number) return (false, "MDT_BandLocked");
+        if (b.configured && (calmScore < b.minScore || calmScore > b.maxScore)) return (false, "MDT_ScoreOutOfBand");
+        return (true, "");
+    }
+
+    /// @notice Returns the number of snapshots in the last N blocks.
+    function getSnapshotCountLastNBlocks(uint256 n) external view returns (uint256 count) {
+        uint256 fromBlock = block.number > n ? block.number - n : 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            if (snapshots[_allSnapshotIds[i]].atBlock >= fromBlock) count++;
+        }
+        return count;
+    }
+
+    /// @notice Returns the most recent snapshot ID globally.
+    function getLatestSnapshotId() external view returns (uint256) {
+        if (_allSnapshotIds.length == 0) return 0;
+        return _allSnapshotIds[_allSnapshotIds.length - 1];
+    }
