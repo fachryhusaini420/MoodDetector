@@ -1069,3 +1069,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (n > 64) n = 64;
         attested = new bool[](n);
         for (uint256 i = 0; i < n; i++) attested[i] = snapshots[snapshotIds[i]].attested;
+        return attested;
+    }
+
+    /// @notice Returns the companion prompt ID that best matches a band (latest stored for that band).
+    function getLatestPromptIdForBand(uint8 bandHint) external view returns (uint256 promptId) {
+        for (uint256 i = _allPromptIds.length; i > 0; i--) {
+            uint256 pid = _allPromptIds[i - 1];
+            if (companionPrompts[pid].bandHint == bandHint) return pid;
+        }
+        return 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // INTEGRATION / FRANKIE HELPERS
+    // -------------------------------------------------------------------------
+
+    /// @notice Single-call config for frontends: addresses, fee, treasury, pause, counts.
+    function getFrontendConfig() external view returns (
+        address keeper_,
+        address vault_,
+        address oracle_,
+        address treasury_,
+        address relay_,
+        uint256 calmFeeWei_,
+        uint256 treasuryBalance_,
+        bool paused_,
+        uint256 snapshotCount_,
+        uint256 promptCount_,
+        uint256 deployBlock_
+    ) {
+        return (
+            mdtCompanionKeeperRole,
+            mdtMoodVaultRole,
+            mdtSentimentOracleRole,
+            calmTreasury,
+            mdtPulseRelayRole,
+            calmFeeWei,
+            treasuryBalance,
+            paused(),
+            _allSnapshotIds.length,
+            _allPromptIds.length,
+            deployBlock
+        );
+    }
+
+    /// @notice Returns snapshot IDs for a user in reverse order (newest first), with limit.
+    function getSnapshotIdsByUserLatest(address user, uint256 limit) external view returns (uint256[] memory ids) {
+        uint256[] storage all = _snapshotIdsByUser[user];
+        if (limit > 64) limit = 64;
+        uint256 total = all.length;
+        if (total == 0) return new uint256[](0);
