@@ -1120,3 +1120,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (limit > 64) limit = 64;
         uint256 total = all.length;
         if (total == 0) return new uint256[](0);
+        uint256 take = limit > total ? total : limit;
+        ids = new uint256[](take);
+        for (uint256 i = 0; i < take; i++) ids[i] = all[total - 1 - i];
+        return ids;
+    }
+
+    /// @notice Returns the current epoch index and block range for that epoch.
+    function getEpochBlockRange(uint256 epochIndex) external view returns (uint256 startBlock, uint256 endBlock) {
+        startBlock = deployBlock + epochIndex * MDT_EPOCH_BLOCKS;
+        endBlock = startBlock + MDT_EPOCH_BLOCKS;
+        return (startBlock, endBlock);
+    }
+
+    /// @notice Returns whether the caller has any role (keeper, oracle, vault, relay) or is treasury.
+    function hasAnyRole(address account) external view returns (bool) {
+        return account == mdtCompanionKeeperRole || account == companionKeeper
+            || account == mdtSentimentOracleRole || account == sentimentOracle
+            || account == mdtMoodVaultRole || account == moodVault
+            || account == mdtPulseRelayRole || account == pulseRelay
+            || account == calmTreasury;
+    }
+
+    // -------------------------------------------------------------------------
+    // CONSTANTS REFERENCE (no-op view for documentation / tooling)
+    // -------------------------------------------------------------------------
+
+    function getConstants() external pure returns (
+        uint256 scoreScale,
+        uint256 maxSentimentBands,
+        uint256 maxSnapshotsPerUser,
+        uint256 maxPrompts,
+        uint256 batchSize,
+        uint256 bandLockBlocks,
+        uint256 epochBlocks
+    ) {
+        return (
+            MDT_SCORE_SCALE,
+            MDT_MAX_SENTIMENT_BANDS,
+            MDT_MAX_SNAPSHOTS_PER_USER,
+            MDT_MAX_PROMPTS,
+            MDT_BATCH_SIZE,
+            MDT_BAND_LOCK_BLOCKS,
+            MDT_EPOCH_BLOCKS
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // GAS ESTIMATES (view)
+    // -------------------------------------------------------------------------
+
+    function estimateRecordSnapshotGas() external pure returns (uint256) {
