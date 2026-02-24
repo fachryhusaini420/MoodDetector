@@ -814,3 +814,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
             storedBlocks[i] = p.storedAtBlock;
         }
         return (contentHashes, bandHints, storedBlocks);
+    }
+
+    // -------------------------------------------------------------------------
+    // AGGREGATE STATS (global)
+    // -------------------------------------------------------------------------
+
+    function getGlobalStats() external view returns (
+        uint256 totalSnapshotCount,
+        uint256 totalPromptCount,
+        uint256 totalTreasuryWei,
+        uint256 totalCalmScoreSum,
+        uint256 attestedCount
+    ) {
+        totalSnapshotCount = _allSnapshotIds.length;
+        totalPromptCount = _allPromptIds.length;
+        totalTreasuryWei = treasuryBalance;
+        totalCalmScoreSum = 0;
+        attestedCount = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[_allSnapshotIds[i]];
+            totalCalmScoreSum += s.calmScore;
+            if (s.attested) attestedCount++;
+        }
+        return (totalSnapshotCount, totalPromptCount, totalTreasuryWei, totalCalmScoreSum, attestedCount);
+    }
+
+    // -------------------------------------------------------------------------
+    // UNIQUE ADDRESSES (immutable; for verification / Frankie UI)
+    // -------------------------------------------------------------------------
+
+    function getImmutableAddresses() external view returns (
+        address keeper,
+        address vault,
+        address oracle,
+        address treasury,
+        address relay
+    ) {
+        return (companionKeeper, moodVault, sentimentOracle, calmTreasury, pulseRelay);
+    }
+
+    function getDomainSalt() external view returns (bytes32) {
+        return MDT_DOMAIN_SALT;
+    }
+
+    // -------------------------------------------------------------------------
+    // FEE AND TREASURY VIEWS
+    // -------------------------------------------------------------------------
+
+    function getTreasuryBalance() external view returns (uint256) {
+        return treasuryBalance;
+    }
