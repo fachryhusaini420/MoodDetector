@@ -1426,3 +1426,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
 
     /// @notice Returns the domain salt (immutable) for cross-chain or tooling verification.
     function getDomainSaltForVerification() external view returns (bytes32) {
+        return MDT_DOMAIN_SALT;
+    }
+
+    /// @notice Returns deploy timestamp (immutable).
+    function getDeployTimestamp() external view returns (uint256) {
+        return deployTimestamp;
+    }
+
+    /// @notice Returns whether a user has ever recorded a snapshot.
+    function hasUserRecorded(address user) external view returns (bool) {
+        return _snapshotIdsByUser[user].length > 0;
+    }
+
+    /// @notice Returns the index of a snapshot in the global list, or type(uint256).max if not found.
+    function getSnapshotIndex(uint256 snapshotId) external view returns (uint256 index) {
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            if (_allSnapshotIds[i] == snapshotId) return i;
+        }
+        return type(uint256).max;
+    }
+
+    /// @notice Returns the index of a prompt in the global list, or type(uint256).max if not found.
+    function getPromptIndex(uint256 promptId) external view returns (uint256 index) {
+        for (uint256 i = 0; i < _allPromptIds.length; i++) {
+            if (_allPromptIds[i] == promptId) return i;
+        }
+        return type(uint256).max;
+    }
+
+    /// @notice Returns snapshot IDs for a user that fall within a block range (inclusive).
+    function getSnapshotIdsByUserInBlockRange(
+        address user,
+        uint256 fromBlock,
+        uint256 toBlock
+    ) external view returns (uint256[] memory ids) {
+        uint256[] storage all = _snapshotIdsByUser[user];
+        uint256[] memory temp = new uint256[](all.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < all.length; i++) {
+            uint256 blk = snapshots[all[i]].atBlock;
+            if (blk >= fromBlock && blk <= toBlock) {
+                temp[count] = all[i];
+                count++;
+            }
+        }
+        ids = new uint256[](count);
+        for (uint256 j = 0; j < count; j++) ids[j] = temp[j];
+        return ids;
+    }
+
+    /// @notice Returns the companion prompt content hash for a given band (latest stored).
