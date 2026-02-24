@@ -1273,3 +1273,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         }
         return counts;
     }
+
+    /// @notice Returns the highest calm score ever recorded for a user.
+    function getMaxCalmScoreForUser(address user) external view returns (uint256 maxScore) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 s = snapshots[ids[i]].calmScore;
+            if (s > maxScore) maxScore = s;
+        }
+        return maxScore;
+    }
+
+    /// @notice Returns the lowest calm score ever recorded for a user (ignoring zero).
+    function getMinCalmScoreForUser(address user) external view returns (uint256 minScore) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        if (ids.length == 0) return MDT_SCORE_SCALE;
+        minScore = MDT_SCORE_SCALE;
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 s = snapshots[ids[i]].calmScore;
+            if (s < minScore) minScore = s;
+        }
+        return minScore;
+    }
+
+    /// @notice Returns block number of the first and last snapshot for a user.
+    function getUserSnapshotBlockRange(address user) external view returns (uint256 firstBlock, uint256 lastBlock) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        if (ids.length == 0) return (0, 0);
+        firstBlock = snapshots[ids[0]].atBlock;
+        lastBlock = snapshots[ids[ids.length - 1]].atBlock;
+        return (firstBlock, lastBlock);
+    }
+
+    /// @notice Returns the attestation rate (attested count / total) for a user.
+    function getUserAttestationRate(address user) external view returns (uint256 attested, uint256 total) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        total = ids.length;
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (snapshots[ids[i]].attested) attested++;
+        }
+        return (attested, total);
+    }
+
+    /// @notice Returns the attestation rate globally.
+    function getGlobalAttestationRate() external view returns (uint256 attested, uint256 total) {
+        total = _allSnapshotIds.length;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            if (snapshots[_allSnapshotIds[i]].attested) attested++;
+        }
+        return (attested, total);
+    }
+
