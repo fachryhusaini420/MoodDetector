@@ -967,3 +967,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
             if (s.atBlock >= startBlock && s.atBlock < endBlock) {
                 temp[count] = sid;
                 count++;
+            }
+        }
+        ids = new uint256[](count);
+        for (uint256 j = 0; j < count; j++) ids[j] = temp[j];
+        return ids;
+    }
+
+    function getSnapshotDetails(uint256 snapshotId) external view returns (
+        address user,
+        uint8 sentimentBand,
+        uint256 calmScore,
+        bytes32 promptHash,
+        uint256 atBlock,
+        bool attested,
+        uint256 bandMinScore,
+        uint256 bandMaxScore
+    ) {
+        MoodSnapshot storage s = snapshots[snapshotId];
+        user = s.user;
+        sentimentBand = s.sentimentBand;
+        calmScore = s.calmScore;
+        promptHash = s.promptHash;
+        atBlock = s.atBlock;
+        attested = s.attested;
+        if (s.sentimentBand < MDT_MAX_SENTIMENT_BANDS) {
+            SentimentBandConfig storage b = sentimentBands[s.sentimentBand];
+            bandMinScore = b.minScore;
+            bandMaxScore = b.maxScore;
+        } else {
+            bandMinScore = 0;
+            bandMaxScore = MDT_SCORE_SCALE;
+        }
+        return (user, sentimentBand, calmScore, promptHash, atBlock, attested, bandMinScore, bandMaxScore);
+    }
+
+    /// @notice Returns whether the contract is fully operational (not paused).
+    function isOperational() external view returns (bool) {
+        return !paused();
+    }
+
+    /// @notice Returns the number of configured sentiment bands (bands with configured == true).
+    function getConfiguredBandCount() external view returns (uint8 count) {
+        for (uint8 i = 0; i < MDT_MAX_SENTIMENT_BANDS; i++) {
+            if (sentimentBands[i].configured) count++;
+        }
+        return count;
+    }
+
+    /// @notice Returns configured band indices (up to 16).
+    function getConfiguredBandIndices() external view returns (uint8[] memory indices) {
+        uint8[] memory temp = new uint8[](MDT_MAX_SENTIMENT_BANDS);
