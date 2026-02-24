@@ -1477,3 +1477,26 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     }
 
     /// @notice Returns the companion prompt content hash for a given band (latest stored).
+    function getLatestPromptHashForBand(uint8 bandHint) external view returns (bytes32 contentHash) {
+        uint256 pid = this.getLatestPromptIdForBand(bandHint);
+        if (pid == 0) return bytes32(0);
+        return companionPrompts[pid].contentHash;
+    }
+
+    /// @notice Returns whether fee is required for recording (calmFeeWei > 0).
+    function isFeeRequired() external view returns (bool) {
+        return calmFeeWei > 0;
+    }
+
+    /// @notice Returns the minimum wei required to record one snapshot.
+    function getMinWeiForOneSnapshot() external view returns (uint256) {
+        return calmFeeWei;
+    }
+
+    /// @notice Returns the minimum wei required to record a batch of N snapshots.
+    function getMinWeiForBatch(uint256 n) external view returns (uint256) {
+        return calmFeeWei * n;
+    }
+}
+
+
