@@ -1222,3 +1222,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         return (indices, minScores, maxScores, lockedUntilBlocks, configured);
     }
 
+    /// @notice Returns the number of snapshots recorded in a given block range (inclusive).
+    function getSnapshotCountInBlockRange(uint256 fromBlock, uint256 toBlock) external view returns (uint256 count) {
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            uint256 blk = snapshots[_allSnapshotIds[i]].atBlock;
+            if (blk >= fromBlock && blk <= toBlock) count++;
+        }
+        return count;
+    }
+
+    /// @notice Returns the number of distinct users who have recorded at least one snapshot (capped at 256 per call).
+    function getUniqueUserCount() external view returns (uint256 count) {
+        address[256] memory seen;
+        uint256 len = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length && len < 256; i++) {
+            address u = snapshots[_allSnapshotIds[i]].user;
+            bool found = false;
+            for (uint256 j = 0; j < len; j++) {
+                if (seen[j] == u) { found = true; break; }
+            }
+            if (!found) {
+                seen[len] = u;
+                len++;
+            }
+        }
+        return len;
+    }
+
+    /// @notice Simple existence check for snapshot.
+    function snapshotExists(uint256 snapshotId) external view returns (bool) {
+        return snapshots[snapshotId].user != address(0);
+    }
+
+    /// @notice Simple existence check for prompt.
+    function promptExists(uint256 promptId) external view returns (bool) {
+        return companionPrompts[promptId].storedAtBlock != 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // ADDITIONAL VIEWS FOR ANALYTICS
+    // -------------------------------------------------------------------------
+
+    /// @notice Returns calm score distribution: count of snapshots per band for a user.
+    function getUserBandDistribution(address user) external view returns (uint256[] memory counts) {
+        counts = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint8 b = snapshots[ids[i]].sentimentBand;
+            if (b < MDT_MAX_SENTIMENT_BANDS) counts[b]++;
+        }
+        return counts;
+    }
