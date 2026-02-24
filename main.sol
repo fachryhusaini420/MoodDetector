@@ -916,3 +916,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) revert MDT_InvalidBandIndex();
         bandLabelHash[bandIndex] = labelHash;
     }
+
+    function getBandLabelHashes(uint8 fromIndex, uint8 toIndex) external view returns (bytes32[] memory hashes) {
+        if (toIndex > fromIndex + 32) toIndex = fromIndex + 32;
+        if (toIndex >= MDT_MAX_SENTIMENT_BANDS) toIndex = MDT_MAX_SENTIMENT_BANDS - 1;
+        uint256 n = toIndex >= fromIndex ? toIndex - fromIndex + 1 : 0;
+        hashes = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) {
+            uint8 bi = uint8(fromIndex + i);
+            hashes[i] = bandLabelHash[bi];
+        }
+        return hashes;
+    }
+
+    // -------------------------------------------------------------------------
+    // LAST SNAPSHOT PER BAND (optional cache; updated on record)
+    // -------------------------------------------------------------------------
+
+    mapping(uint8 => uint256) public lastSnapshotIdByBand;
+
+    function _updateLastSnapshotByBand(uint8 band) internal {
+        if (band < MDT_MAX_SENTIMENT_BANDS) lastSnapshotIdByBand[band] = snapshotCounter;
+    }
+
+    // Override record to update lastSnapshotIdByBand - we do it in recordMoodSnapshot and recordMoodSnapshotBatch
+    // (already have snapshotCounter at that point; call _updateLastSnapshotByBand(sentimentBand) after assigning snapshotId)
+
+    // -------------------------------------------------------------------------
+    // INTERNAL: update last snapshot by band (called from record functions)
+    // -------------------------------------------------------------------------
+
+    function getLastSnapshotIdForBand(uint8 bandIndex) external view returns (uint256) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return 0;
+        return lastSnapshotIdByBand[bandIndex];
+    }
+
+    // -------------------------------------------------------------------------
+    // EPOCH SNAPSHOT LIST (for Frankie dashboard)
+    // -------------------------------------------------------------------------
+
+    function getEpochSnapshotIds(uint256 epochIndex, uint256 maxReturn) external view returns (uint256[] memory ids) {
+        uint256 startBlock = deployBlock + epochIndex * MDT_EPOCH_BLOCKS;
+        uint256 endBlock = startBlock + MDT_EPOCH_BLOCKS;
+        if (maxReturn > 128) maxReturn = 128;
+        uint256[] memory temp = new uint256[](maxReturn);
+        uint256 count = 0;
+        for (uint256 i = _allSnapshotIds.length; i > 0 && count < maxReturn; i--) {
+            uint256 sid = _allSnapshotIds[i - 1];
+            MoodSnapshot storage s = snapshots[sid];
+            if (s.atBlock >= startBlock && s.atBlock < endBlock) {
+                temp[count] = sid;
+                count++;
