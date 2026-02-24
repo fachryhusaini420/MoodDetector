@@ -1018,3 +1018,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
     /// @notice Returns configured band indices (up to 16).
     function getConfiguredBandIndices() external view returns (uint8[] memory indices) {
         uint8[] memory temp = new uint8[](MDT_MAX_SENTIMENT_BANDS);
+        uint8 count = 0;
+        for (uint8 i = 0; i < MDT_MAX_SENTIMENT_BANDS; i++) {
+            if (sentimentBands[i].configured) {
+                temp[count] = i;
+                count++;
+            }
+        }
+        indices = new uint8[](count);
+        for (uint8 j = 0; j < count; j++) indices[j] = temp[j];
+        return indices;
+    }
+
+    /// @notice Compute average calm score across all snapshots (scaled by MDT_SCORE_SCALE).
+    function getAverageCalmScore() external view returns (uint256 average) {
+        uint256 total = _allSnapshotIds.length;
+        if (total == 0) return 0;
+        uint256 sum = 0;
+        for (uint256 i = 0; i < total; i++) sum += snapshots[_allSnapshotIds[i]].calmScore;
+        return sum / total;
+    }
+
+    /// @notice Compute average calm score for a given user.
+    function getAverageCalmScoreForUser(address user) external view returns (uint256 average) {
+        uint256[] storage ids = _snapshotIdsByUser[user];
+        if (ids.length == 0) return 0;
+        uint256 sum = 0;
+        for (uint256 i = 0; i < ids.length; i++) sum += snapshots[ids[i]].calmScore;
+        return sum / ids.length;
+    }
+
+    /// @notice Returns total calm points held by all users (sum of userCalmBalance).
+    /// @dev Requires iterating; use sparingly. For large user sets consider off-chain indexing.
+    function getTotalCalmPointsInCirculation() external view returns (uint256 total) {
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            address u = snapshots[_allSnapshotIds[i]].user;
+            total += userCalmBalance[u];
+        }
+        return total;
+    }
+
+    /// @notice Check if a snapshot exists and is attested.
+    function isSnapshotAttested(uint256 snapshotId) external view returns (bool) {
+        return snapshots[snapshotId].attested;
+    }
+
+    /// @notice Get attestation status for a batch of snapshots.
+    function getAttestationStatus(uint256[] calldata snapshotIds) external view returns (bool[] memory attested) {
+        uint256 n = snapshotIds.length;
+        if (n > 64) n = 64;
+        attested = new bool[](n);
+        for (uint256 i = 0; i < n; i++) attested[i] = snapshots[snapshotIds[i]].attested;
