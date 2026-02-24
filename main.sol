@@ -1375,3 +1375,54 @@ contract MoodDetector is ReentrancyGuard, Pausable {
         if (_allSnapshotIds.length == 0) return 0;
         return _allSnapshotIds[_allSnapshotIds.length - 1];
     }
+
+    /// @notice Returns the most recent prompt ID.
+    function getLatestPromptId() external view returns (uint256) {
+        if (_allPromptIds.length == 0) return 0;
+        return _allPromptIds[_allPromptIds.length - 1];
+    }
+
+    // -------------------------------------------------------------------------
+    // BAND STATS PER BAND
+    // -------------------------------------------------------------------------
+
+    /// @notice For a given band, returns count and sum of calm scores (for that band only).
+    function getBandStats(uint8 bandIndex) external view returns (uint256 count, uint256 sumCalmScore) {
+        if (bandIndex >= MDT_MAX_SENTIMENT_BANDS) return (0, 0);
+        count = snapshotCountByBand[bandIndex];
+        sumCalmScore = 0;
+        for (uint256 i = 0; i < _allSnapshotIds.length; i++) {
+            MoodSnapshot storage s = snapshots[_allSnapshotIds[i]];
+            if (s.sentimentBand == bandIndex) sumCalmScore += s.calmScore;
+        }
+        return (count, sumCalmScore);
+    }
+
+    /// @notice Returns average calm score for a band (0 if no snapshots).
+    function getBandAverageCalm(uint8 bandIndex) external view returns (uint256 average) {
+        (uint256 count, uint256 sum) = this.getBandStats(bandIndex);
+        if (count == 0) return 0;
+        return sum / count;
+    }
+
+    /// @notice Returns the last snapshot ID recorded for each band (up to 16 bands).
+    function getLastSnapshotIdsAllBands() external view returns (uint256[] memory snapshotIds) {
+        snapshotIds = new uint256[](MDT_MAX_SENTIMENT_BANDS);
+        for (uint8 i = 0; i < MDT_MAX_SENTIMENT_BANDS; i++) {
+            snapshotIds[i] = lastSnapshotIdByBand[i];
+        }
+        return snapshotIds;
+    }
+
+    /// @notice Checks if the contract has received any ETH (treasury or fees).
+    function hasTreasuryBalance() external view returns (bool) {
+        return treasuryBalance > 0;
+    }
+
+    /// @notice Returns the role that can withdraw treasury (immutable calmTreasury).
+    function getTreasuryAddress() external view returns (address) {
+        return calmTreasury;
+    }
+
+    /// @notice Returns the domain salt (immutable) for cross-chain or tooling verification.
+    function getDomainSaltForVerification() external view returns (bytes32) {
